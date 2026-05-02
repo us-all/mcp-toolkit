@@ -15,12 +15,14 @@
 
 ```
 src/
-├── extract-fields.ts   # applyExtractFields(data, expr?) — 응답 필드 프로젝션
-├── registry.ts         # ToolRegistry<TCategory> + createSearchToolsMetaTool + parseEnvList
-└── index.ts            # re-export 통합 진입점
+├── extract-fields.ts       # applyExtractFields(data, expr?) — 응답 필드 프로젝션
+├── registry.ts             # ToolRegistry<TCategory> + createSearchToolsMetaTool + parseEnvList
+├── wrap-tool-handler.ts    # createWrapToolHandler — 에러 sanitize + structured 응답 + extractFields auto-apply
+└── index.ts                # re-export 통합 진입점
 tests/
-├── extract-fields.test.ts   # 9 cases — wildcards, backtick keys, projection 엣지
-└── registry.test.ts         # 11 cases — search 매칭, 카테고리 토글, allowlist/denylist
+├── extract-fields.test.ts      # 9 cases — wildcards, backtick keys, projection 엣지
+├── registry.test.ts            # 11 cases — search 매칭, 카테고리 토글, allowlist/denylist
+└── wrap-tool-handler.test.ts   # 16 cases — 성공/에러 경로, 커스텀 redaction, errorExtractors
 STANDARD.md             # us-all MCP 작성 표준 (패턴 가이드)
 ```
 
@@ -29,7 +31,7 @@ STANDARD.md             # us-all MCP 작성 표준 (패턴 가이드)
 ```bash
 pnpm install
 pnpm build          # tsc → dist/
-pnpm test           # 20 unit tests
+pnpm test           # 36 unit tests
 ```
 
 ## 설계 원칙
@@ -50,9 +52,10 @@ pnpm test           # 20 unit tests
 | unifi-mcp v1.5.0+ | ✓ |
 | android-mcp v1.7.0+ | ✓ |
 
-## 최근 변경사항 (2026-05-01)
+## 최근 변경사항
 
-- **v0.1.0**: 초기 릴리즈. `applyExtractFields`, `ToolRegistry<TCategory>`, `createSearchToolsMetaTool`, `parseEnvList`, `extractFieldsDescription` 노출.
+- **v0.2.0** (2026-05-02): `createWrapToolHandler` factory 추가 — 6 consumer repo의 `tools/utils.ts` 패턴 통합. 옵션: `redactionPatterns` (기본 7종 + caller 패턴 머지), `errorExtractors` (커스텀 에러 클래스 매칭, `passthrough`/`structured` 분기), `extractFieldsParam`. 기본 export `wrapToolHandler`는 zero-config. 16 신규 테스트.
+- **v0.1.0** (2026-05-01): 초기 릴리즈. `applyExtractFields`, `ToolRegistry<TCategory>`, `createSearchToolsMetaTool`, `parseEnvList`, `extractFieldsDescription` 노출.
 - 6 production repo가 동일 세션에서 즉시 마이그레이션 (~990 lines 코드 중복 제거).
 - npm trusted publishing (GitHub Actions OIDC) 설정 완료.
 - STANDARD.md 이 repo로 이전 (이전엔 datadog-mcp-server에 위치).
@@ -66,7 +69,8 @@ pnpm test           # 20 unit tests
 
 - [x] 초기 릴리즈 (extract-fields + registry + search-tools meta)
 - [x] 6 production repo 마이그레이션
-- [ ] `wrapToolHandler` factory — 6 repo가 각자 만드는 sanitization 로직 통합 (0.2.0 후보)
+- [x] `wrapToolHandler` factory — 6 repo가 각자 만드는 sanitization 로직 통합 (v0.2.0)
+- [ ] 6 consumer repo 마이그레이션 (각 repo의 `tools/utils.ts` 제거 + toolkit factory 호출로 교체)
 - [ ] `aggregationHelper` 또는 `Promise.allSettled` wrapper — aggregation 도구의 error reporting 패턴화
 - [ ] `resourceHelper` — `asJson(uri, data)` 같은 반복 헬퍼 노출
 - [ ] 1.0.0 안정화 (semver guarantee)

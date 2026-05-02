@@ -2,7 +2,7 @@
 
 Shared building blocks for `@us-all/*` MCP servers — extracted from production patterns proven across [datadog-mcp](https://github.com/us-all/datadog-mcp-server), [openmetadata-mcp](https://github.com/us-all/openmetadata-mcp-server), [google-drive-mcp](https://github.com/us-all/google-drive-mcp-server), [mlflow-mcp](https://github.com/us-all/mlflow-mcp-server), [unifi-mcp](https://github.com/us-all/unifi-mcp-server), [android-mcp](https://github.com/us-all/android-mcp-server).
 
-See the [@us-all MCP Standard](https://github.com/us-all/datadog-mcp-server/blob/master/STANDARD.md) for context on why these patterns matter.
+See the [@us-all MCP Standard](https://github.com/us-all/mcp-toolkit/blob/main/STANDARD.md) for context on why these patterns matter.
 
 ## Install
 
@@ -26,18 +26,35 @@ applyExtractFields(tableResponse, "id,columns.*.name");
 // → { id: "1", columns: [{ name: "id" }] }
 ```
 
-Wire it into your `wrapToolHandler` once and every tool gets it for free:
+### `createWrapToolHandler(options?)`
+
+Factory that returns a `wrapToolHandler<T>(fn)` matching the @us-all standard: 2-space JSON output, automatic `extractFields` projection on success, regex redaction on errors, and pluggable custom-error matching. Replaces `tools/utils.ts` boilerplate across consumer repos.
 
 ```ts
-export function wrapToolHandler<T>(fn: (params: T) => Promise<unknown>) {
-  return async (params: T) => {
-    const result = await fn(params);
-    const expr = (params as Record<string, unknown> | undefined)?.extractFields;
-    const projected = typeof expr === "string" ? applyExtractFields(result, expr) : result;
-    return { content: [{ type: "text" as const, text: JSON.stringify(projected, null, 2) }] };
-  };
-}
+import { createWrapToolHandler } from "@us-all/mcp-toolkit";
+
+const wrapToolHandler = createWrapToolHandler({
+  redactionPatterns: [/DD_API_KEY/i],            // merged with built-in defaults
+  errorExtractors: [
+    {
+      match: (e) => e instanceof WriteBlockedError,
+      extract: (e) => ({ kind: "passthrough", text: (e as Error).message }),
+    },
+    {
+      match: (e) => e instanceof DatadogApiError,
+      extract: (e) => {
+        const err = e as DatadogApiError;
+        return {
+          kind: "structured",
+          data: { message: err.message, status: err.code, details: err.body },
+        };
+      },
+    },
+  ],
+});
 ```
+
+Defaults redact `api_key`, `app_key`, `authorization`, `bearer …`, `password`, `secret`, `token`. Use the bare `wrapToolHandler` export for a zero-config wrapper.
 
 ### `ToolRegistry<TCategory>`
 
@@ -83,7 +100,7 @@ pnpm build
 pnpm test
 ```
 
-20+ unit tests covering edge cases (wildcards, backtick-quoted keys, array projection, allowlist/denylist semantics, meta-tool factory).
+36 unit tests covering edge cases (wildcards, backtick-quoted keys, array projection, allowlist/denylist semantics, meta-tool factory, error redaction, custom error extractors).
 
 ## License
 
