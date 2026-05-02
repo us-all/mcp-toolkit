@@ -21,6 +21,8 @@ import {
   parseEnvList,
   applyExtractFields,
   extractFieldsDescription,
+  createWrapToolHandler,
+  wrapToolHandler,
 } from "@us-all/mcp-toolkit";
 ```
 
@@ -91,20 +93,30 @@ extractFields="id,owner.name,columns.*.name,columns.*.dataType"
 → keeps only those fields, drops everything else
 ```
 
-**Wire it once in `wrapToolHandler`**:
+**Wire it through `createWrapToolHandler` in the toolkit** — the factory handles `extractFields` projection, MCP response shaping, and error sanitization for you:
 
 ```ts
-import { applyExtractFields } from "./extract-fields.js";
+import { createWrapToolHandler } from "@us-all/mcp-toolkit";
 
-export function wrapToolHandler<T>(fn: (params: T) => Promise<unknown>) {
-  return async (params: T) => {
-    const result = await fn(params);
-    const expr = (params as Record<string, unknown> | undefined)?.extractFields;
-    const projected = typeof expr === "string" ? applyExtractFields(result, expr) : result;
-    return { content: [{ type: "text" as const, text: JSON.stringify(projected, null, 2) }] };
-  };
-}
+export const wrapToolHandler = createWrapToolHandler({
+  redactionPatterns: [/DD_API_KEY/i, /DD_APP_KEY/i],   // merged with toolkit defaults
+  errorExtractors: [
+    {
+      match: (e) => e instanceof WriteBlockedError,
+      extract: (e) => ({ kind: "passthrough", text: (e as Error).message }),
+    },
+    {
+      match: (e) => e instanceof DatadogApiError,
+      extract: (e) => ({
+        kind: "structured",
+        data: { message: (e as Error).message, status: (e as DatadogApiError).code },
+      }),
+    },
+  ],
+});
 ```
+
+For a zero-config wrapper, import the prebuilt `wrapToolHandler` from the toolkit instead. Default redaction covers `api_key`, `app_key`, `authorization`, `bearer …`, `password`, `secret`, `token`.
 
 Then declare the field on read tool schemas you want LLMs to use it on:
 
@@ -178,7 +190,7 @@ src/
 ├── tool-registry.ts      # CATEGORIES const + ToolRegistry class + searchTools meta-tool
 ├── resources.ts          # MCP Resources via registerResource (hot entity URIs)
 └── tools/
-    ├── utils.ts          # wrapToolHandler (auto-applies extractFields), assertWriteAllowed, error sanitization
+    ├── utils.ts          # wrapToolHandler built via createWrapToolHandler factory + domain extractors, assertWriteAllowed, custom error classes
     ├── extract-fields.ts # applyExtractFields helper + extractFieldsDescription
     ├── aggregations.ts   # round-trip-elimination tools (get-X-summary)
     └── <category>.ts     # one file per logical category, exporting Schema + handler pairs
@@ -187,7 +199,7 @@ src/
 ## Other conventions
 
 - **Read-only by default**: gate all create/update/delete behind `<PREFIX>_ALLOW_WRITE=true`.
-- **Sensitive token redaction**: in `wrapToolHandler` error path, regex-strip API keys, bearer tokens, and the literal env var names from error messages.
+- **Sensitive token redaction**: handled by `createWrapToolHandler` defaults (api/app key, authorization, bearer, password, secret, token). Pass domain-specific patterns (literal env var names like `DD_API_KEY`, `OPENMETADATA_TOKEN`, `X-API-KEY`) via the `redactionPatterns` option.
 - **Schema-first**: every tool exports `<name>Schema` (zod) + `<name>` handler. Every field has `.describe()`.
 - **Categories cover everything**: include even infrequent tools (events, audit) so users can disable them via `<PREFIX>_DISABLE` rather than fork.
 - **`packageManager: "pnpm@10.30.2"`** + **`pnpm.overrides`** for transitive vulnerability pinning.
