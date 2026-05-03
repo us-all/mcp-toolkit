@@ -82,8 +82,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-          cache: pnpm
-          cache-dependency-path: consumer/pnpm-lock.yaml
+          # No `cache: pnpm` — when bump skips (already pinned), pnpm install
+          # is also skipped, so post-step cache save would fail with a Path
+          # Validation Error. Cascade runs are infrequent enough that the
+          # cache miss is fine.
 
       - name: Bump dep + PATCH version
         id: bump
