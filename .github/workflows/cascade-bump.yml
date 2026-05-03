@@ -1,0 +1,152 @@
+name: Cascade toolkit bump to consumers
+
+# Triggered after a new mcp-toolkit version is published. For each of the 6
+# consumer repos, opens a PR that bumps the @us-all/mcp-toolkit dep to the
+# new version, bumps the consumer's PATCH version, runs install/build/test,
+# and adds a CLAUDE.md "최근 변경사항" entry. The PR is NOT auto-merged —
+# review and merge manually so the per-repo publish workflow then fires.
+#
+# Auth: requires a fine-grained PAT in the org `CASCADE_PAT` secret with
+# Contents:write + Pull requests:write + Workflows:write across all 6
+# consumer repos. One-time setup.
+
+on:
+  workflow_run:
+    workflows: ["Publish to npm"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Toolkit version to cascade (e.g. 1.1.0). Leave blank to read latest from npm."
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  cascade:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        consumer:
+          - android-mcp-server
+          - datadog-mcp-server
+          - google-drive-mcp-server
+          - mlflow-mcp-server
+          - openmetadata-mcp-server
+          - unifi-mcp-server
+    steps:
+      - name: Resolve toolkit version
+        id: ver
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            v="${{ github.event.inputs.version }}"
+          else
+            # Wait briefly for npm to surface the just-published version
+            for i in $(seq 1 30); do
+              v=$(npm view @us-all/mcp-toolkit version 2>/dev/null || true)
+              [ -n "$v" ] && break
+              sleep 5
+            done
+          fi
+          if [ -z "$v" ]; then
+            echo "::error::Could not resolve toolkit version"
+            exit 1
+          fi
+          echo "v=$v" >> "$GITHUB_OUTPUT"
+          echo "Toolkit version: $v"
+
+      - name: Checkout consumer
+        uses: actions/checkout@v4
+        with:
+          repository: us-all/${{ matrix.consumer }}
+          token: ${{ secrets.CASCADE_PAT }}
+          path: consumer
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: consumer/pnpm-lock.yaml
+
+      - name: Bump dep + PATCH version
+        id: bump
+        working-directory: consumer
+        run: |
+          new_v="${{ steps.ver.outputs.v }}"
+          curr_dep=$(jq -r '.dependencies["@us-all/mcp-toolkit"]' package.json)
+          if [ "$curr_dep" = "^$new_v" ]; then
+            echo "Already pinned to ^$new_v — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          curr_v=$(jq -r .version package.json)
+          IFS='.' read -r maj min pat <<< "$curr_v"
+          next_v="${maj}.${min}.$((pat + 1))"
+          jq --arg v "$next_v" --arg t "^$new_v" \
+             '.version = $v | .dependencies["@us-all/mcp-toolkit"] = $t' \
+             package.json > /tmp/p.json && mv /tmp/p.json package.json
+          echo "next_v=$next_v" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Install + build + test
+        if: steps.bump.outputs.skip == 'false'
+        working-directory: consumer
+        run: |
+          pnpm install --no-frozen-lockfile
+          pnpm build
+          pnpm test
+
+      - name: Update CLAUDE.md changelog entry
+        if: steps.bump.outputs.skip == 'false'
+        working-directory: consumer
+        run: |
+          new_v="${{ steps.ver.outputs.v }}"
+          consumer_v="${{ steps.bump.outputs.next_v }}"
+          today=$(date -u +%Y-%m-%d)
+          entry="- **v${consumer_v}** (${today}): \`@us-all/mcp-toolkit ^${new_v}\` 핀 업데이트 — 자동 cascade. 코드 변경 0줄."
+          if [ ! -f CLAUDE.md ]; then
+            echo "No CLAUDE.md — skipping changelog update."
+            exit 0
+          fi
+          # Insert above the first existing version entry under "## 최근 변경사항"
+          awk -v entry="$entry" '
+            BEGIN { in_section=0; inserted=0 }
+            /^## 최근 변경사항/ { in_section=1; print; next }
+            in_section && /^- \*\*v/ && !inserted { print entry; print; inserted=1; next }
+            /^## / && !/^## 최근 변경사항/ { in_section=0 }
+            { print }
+          ' CLAUDE.md > /tmp/c.md
+          if ! diff -q CLAUDE.md /tmp/c.md > /dev/null; then
+            mv /tmp/c.md CLAUDE.md
+          else
+            rm /tmp/c.md
+            echo "::warning::Could not find a version entry to anchor against in CLAUDE.md."
+          fi
+
+      - name: Open PR
+        if: steps.bump.outputs.skip == 'false'
+        working-directory: consumer
+        env:
+          GH_TOKEN: ${{ secrets.CASCADE_PAT }}
+        run: |
+          new_v="${{ steps.ver.outputs.v }}"
+          consumer_v="${{ steps.bump.outputs.next_v }}"
+          branch="cascade/toolkit-${new_v}"
+          git config user.name "us-all-bot"
+          git config user.email "us-all-bot@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add package.json pnpm-lock.yaml CLAUDE.md
+          git commit -m "chore: v${consumer_v} — bump @us-all/mcp-toolkit to ^${new_v}"
+          git push --force-with-lease origin "$branch"
+          if gh pr view "$branch" >/dev/null 2>&1; then
+            echo "PR for $branch already exists — pushed updated commits."
+          else
+            gh pr create \
+              --title "chore: v${consumer_v} — bump @us-all/mcp-toolkit to ^${new_v}" \
+              --body "Automated cascade from \`@us-all/mcp-toolkit@${new_v}\`. Tests pass on this branch (see CI). Tag and publish after merge." \
+              --base main --head "$branch"
+          fi

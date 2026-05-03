@@ -80,6 +80,21 @@ pnpm test           # 36 unit tests
 - [ ] `resourceHelper` — `asJson(uri, data)` 같은 반복 헬퍼 노출 (1.x post-release)
 - [ ] `wrapImageToolHandler` 추출 — android-mcp 로컬 패턴이 toolkit으로 올라갈지 평가 (잠재 BC, 2.0 후보)
 
+## Cascade 자동화
+
+`.github/workflows/cascade-bump.yml` — toolkit publish 성공 시 6 consumer repo에 PR 자동 생성:
+- `@us-all/mcp-toolkit` dep 핀을 새 버전으로 갱신
+- consumer PATCH version bump
+- `pnpm install` + build + test 실행 (성공해야 PR 생성됨)
+- CLAUDE.md "최근 변경사항" 섹션에 entry 자동 삽입
+- PR은 **자동 머지 안 함** — 리뷰 후 머지하면 consumer publish workflow가 점화
+
+**일회성 셋업 필요**: org/repo settings에 `CASCADE_PAT` secret 등록.
+- fine-grained PAT, repository scope = 6 consumer repo, permissions = Contents:write + Pull requests:write + Workflows:write
+- 또는 GitHub App (us-all/* org 전체 설치, 같은 권한)
+
+수동 트리거: `gh workflow run cascade-bump.yml -f version=1.x.y` (us-all/mcp-toolkit repo).
+
 ## 단일 진실 소스 (Single Source of Truth)
 
 신규 패턴 진화 시 toolkit 한 곳만 업데이트 → 6 repo 자동 혜택.
