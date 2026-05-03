@@ -18,11 +18,13 @@ src/
 ├── extract-fields.ts       # applyExtractFields(data, expr?) — 응답 필드 프로젝션
 ├── registry.ts             # ToolRegistry<TCategory> + createSearchToolsMetaTool + parseEnvList
 ├── wrap-tool-handler.ts    # createWrapToolHandler — 에러 sanitize + structured 응답 + extractFields auto-apply
+├── aggregate.ts            # aggregate(fetchers, caveats) — Promise.allSettled + 라벨링된 caveats 보일러플레이트 통합
 └── index.ts                # re-export 통합 진입점
 tests/
 ├── extract-fields.test.ts      # 9 cases — wildcards, backtick keys, projection 엣지
 ├── registry.test.ts            # 11 cases — search 매칭, 카테고리 토글, allowlist/denylist
-└── wrap-tool-handler.test.ts   # 16 cases — 성공/에러 경로, 커스텀 redaction, errorExtractors
+├── wrap-tool-handler.test.ts   # 16 cases — 성공/에러 경로, 커스텀 redaction, errorExtractors
+└── aggregate.test.ts           # 11 cases — 성공/거부 mix, 커스텀 formatReason, 동시성 검증
 STANDARD.md             # us-all MCP 작성 표준 (패턴 가이드)
 ```
 
@@ -54,6 +56,7 @@ pnpm test           # 36 unit tests
 
 ## 최근 변경사항
 
+- **v1.1.0** (2026-05-03): `aggregate(fetchers, caveats, formatReason?)` helper 추가 (`./aggregate` sub-export). 6 consumer의 어그리게이션 도구가 반복하던 `Promise.allSettled` + 라벨링된 `caveats.push(...)` 보일러플레이트(블록당 10-15 lines)를 1줄 호출로 단축. 타입은 입력 fetcher object 모양에서 추론, rejected slot은 `null`. `defaultFormatReason` 헬퍼도 별도 노출. 11 신규 테스트 (총 47/47).
 - **v1.0.0** (2026-05-03): API freeze. v0.2.0 이후 6 consumer 모두 `^0.2.0` 핀에 안정 안착, 후속 변경 0건, 36/36 테스트 통과 → semver 1.x 보장 시작. Public surface 12 symbol (4 entry points) 그대로. Breaking change 없음, 단순 안정화 마일스톤.
 - **v0.2.0** (2026-05-02): `createWrapToolHandler` factory 추가 — 6 consumer repo의 `tools/utils.ts` 패턴 통합. 옵션: `redactionPatterns` (기본 7종 + caller 패턴 머지), `errorExtractors` (커스텀 에러 클래스 매칭, `passthrough`/`structured` 분기), `extractFieldsParam`. 기본 export `wrapToolHandler`는 zero-config. 16 신규 테스트.
 - **v0.1.0** (2026-05-01): 초기 릴리즈. `applyExtractFields`, `ToolRegistry<TCategory>`, `createSearchToolsMetaTool`, `parseEnvList`, `extractFieldsDescription` 노출.
@@ -73,7 +76,7 @@ pnpm test           # 36 unit tests
 - [x] `wrapToolHandler` factory — 6 repo가 각자 만드는 sanitization 로직 통합 (v0.2.0)
 - [x] 6 consumer repo 마이그레이션 (각 repo의 `tools/utils.ts` 제거 + toolkit factory 호출로 교체) — v0.2.0 wave에서 완료
 - [x] 1.0.0 안정화 (semver guarantee) — v1.0.0
-- [ ] `aggregationHelper` 또는 `Promise.allSettled` wrapper — aggregation 도구의 error reporting 패턴화 (1.x post-release)
+- [x] `aggregate(fetchers, caveats)` helper — aggregation 도구의 error reporting 패턴화 (v1.1.0)
 - [ ] `resourceHelper` — `asJson(uri, data)` 같은 반복 헬퍼 노출 (1.x post-release)
 - [ ] `wrapImageToolHandler` 추출 — android-mcp 로컬 패턴이 toolkit으로 올라갈지 평가 (잠재 BC, 2.0 후보)
 

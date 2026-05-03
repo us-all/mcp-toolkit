@@ -16,3 +16,9 @@ export {
   type StructuredError,
   type ToolTextResult,
 } from "./wrap-tool-handler.js";
+export {
+  aggregate,
+  defaultFormatReason,
+  type Fetchers,
+  type Aggregated,
+} from "./aggregate.js";
