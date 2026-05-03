@@ -89,11 +89,47 @@ pnpm test           # 36 unit tests
 - CLAUDE.md "최근 변경사항" 섹션에 entry 자동 삽입
 - PR은 **자동 머지 안 함** — 리뷰 후 머지하면 consumer publish workflow가 점화
 
-**일회성 셋업 필요**: org/repo settings에 `CASCADE_PAT` secret 등록.
-- fine-grained PAT, repository scope = 6 consumer repo, permissions = Contents:write + Pull requests:write + Workflows:write
-- 또는 GitHub App (us-all/* org 전체 설치, 같은 권한)
-
 수동 트리거: `gh workflow run cascade-bump.yml -f version=1.x.y` (us-all/mcp-toolkit repo).
+
+### 일회성 셋업 — GitHub App `us-all-bot`
+
+인증은 GitHub App을 사용. PAT보다 깔끔(만료 없음, 감사 로그 분리, 스코프 좁음). 매트릭스 잡마다 해당 consumer 1개로 좁힌 installation token을 런타임 발급.
+
+**셋업 단계** (web UI 일부 필요 — App 생성은 CLI 불가):
+
+1. **App 생성** — https://github.com/organizations/us-all/settings/apps/new
+   - Name: `us-all-bot` (또는 원하는 이름)
+   - Homepage URL: `https://github.com/us-all`
+   - Webhook → **Active 체크 해제** (이벤트 수신 불필요)
+   - Repository permissions:
+     - Contents: **Read and write**
+     - Pull requests: **Read and write**
+     - Workflows: **Read and write**
+     - Metadata: Read (자동)
+   - Where can this GitHub App be installed: **Only on this account**
+   - Create GitHub App → 생성된 페이지에서 **App ID** 메모
+
+2. **Private key 생성** — 같은 App 페이지 하단 "Private keys" → Generate a private key → `.pem` 파일 다운로드 (한 번만 가능, 안전 보관)
+
+3. **App 설치** — App 페이지 좌측 Install App → us-all → **Only select repositories** → 7개 선택 (mcp-toolkit + 6 consumers)
+
+4. **Secrets/Variables 등록** (CLI):
+   ```bash
+   APP_ID=<생성된 App ID>
+   PEM_PATH=~/Downloads/us-all-bot.YYYY-MM-DD.private-key.pem
+
+   gh variable set BOT_APP_ID --repo us-all/mcp-toolkit --body "$APP_ID"
+   gh secret set BOT_PRIVATE_KEY --repo us-all/mcp-toolkit < "$PEM_PATH"
+   ```
+
+5. **검증**:
+   ```bash
+   gh workflow run cascade-bump.yml --repo us-all/mcp-toolkit -f version=1.1.0
+   gh run watch --repo us-all/mcp-toolkit
+   ```
+   기대: 6 매트릭스 잡 모두 "skip" 반환(이미 ^1.1.0 핀). 인증 실패 시 secret/variable 재확인.
+
+PEM 분실 시: App 페이지에서 새 private key 발급 후 `gh secret set BOT_PRIVATE_KEY` 재등록.
 
 ## 단일 진실 소스 (Single Source of Truth)
 

@@ -6,9 +6,11 @@ name: Cascade toolkit bump to consumers
 # and adds a CLAUDE.md "최근 변경사항" entry. The PR is NOT auto-merged —
 # review and merge manually so the per-repo publish workflow then fires.
 #
-# Auth: requires a fine-grained PAT in the org `CASCADE_PAT` secret with
-# Contents:write + Pull requests:write + Workflows:write across all 6
-# consumer repos. One-time setup.
+# Auth: uses a GitHub App (`us-all-bot`) installed on the 6 consumer repos
+# + this repo. App ID lives in `vars.BOT_APP_ID`, private key in
+# `secrets.BOT_PRIVATE_KEY`. Per-job installation token is minted with
+# scope narrowed to the matrix consumer.
+# See CLAUDE.md "Cascade 자동화" for one-time setup steps.
 
 on:
   workflow_run:
@@ -58,11 +60,20 @@ jobs:
           echo "v=$v" >> "$GITHUB_OUTPUT"
           echo "Toolkit version: $v"
 
+      - name: Mint installation token (scoped to this consumer)
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
+          owner: us-all
+          repositories: ${{ matrix.consumer }}
+
       - name: Checkout consumer
         uses: actions/checkout@v4
         with:
           repository: us-all/${{ matrix.consumer }}
-          token: ${{ secrets.CASCADE_PAT }}
+          token: ${{ steps.app-token.outputs.token }}
           path: consumer
 
       - uses: pnpm/action-setup@v4
@@ -131,13 +142,14 @@ jobs:
         if: steps.bump.outputs.skip == 'false'
         working-directory: consumer
         env:
-          GH_TOKEN: ${{ secrets.CASCADE_PAT }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           new_v="${{ steps.ver.outputs.v }}"
           consumer_v="${{ steps.bump.outputs.next_v }}"
           branch="cascade/toolkit-${new_v}"
-          git config user.name "us-all-bot"
-          git config user.email "us-all-bot@users.noreply.github.com"
+          bot_slug="${{ steps.app-token.outputs.app-slug }}[bot]"
+          git config user.name "$bot_slug"
+          git config user.email "${bot_slug}@users.noreply.github.com"
           git checkout -b "$branch"
           git add package.json pnpm-lock.yaml CLAUDE.md
           git commit -m "chore: v${consumer_v} — bump @us-all/mcp-toolkit to ^${new_v}"
