@@ -54,6 +54,7 @@ pnpm test           # 36 unit tests
 
 ## 최근 변경사항
 
+- **v1.0.0** (2026-05-03): API freeze. v0.2.0 이후 6 consumer 모두 `^0.2.0` 핀에 안정 안착, 후속 변경 0건, 36/36 테스트 통과 → semver 1.x 보장 시작. Public surface 12 symbol (4 entry points) 그대로. Breaking change 없음, 단순 안정화 마일스톤.
 - **v0.2.0** (2026-05-02): `createWrapToolHandler` factory 추가 — 6 consumer repo의 `tools/utils.ts` 패턴 통합. 옵션: `redactionPatterns` (기본 7종 + caller 패턴 머지), `errorExtractors` (커스텀 에러 클래스 매칭, `passthrough`/`structured` 분기), `extractFieldsParam`. 기본 export `wrapToolHandler`는 zero-config. 16 신규 테스트.
 - **v0.1.0** (2026-05-01): 초기 릴리즈. `applyExtractFields`, `ToolRegistry<TCategory>`, `createSearchToolsMetaTool`, `parseEnvList`, `extractFieldsDescription` 노출.
 - 6 production repo가 동일 세션에서 즉시 마이그레이션 (~990 lines 코드 중복 제거).
@@ -70,10 +71,11 @@ pnpm test           # 36 unit tests
 - [x] 초기 릴리즈 (extract-fields + registry + search-tools meta)
 - [x] 6 production repo 마이그레이션
 - [x] `wrapToolHandler` factory — 6 repo가 각자 만드는 sanitization 로직 통합 (v0.2.0)
-- [ ] 6 consumer repo 마이그레이션 (각 repo의 `tools/utils.ts` 제거 + toolkit factory 호출로 교체)
-- [ ] `aggregationHelper` 또는 `Promise.allSettled` wrapper — aggregation 도구의 error reporting 패턴화
-- [ ] `resourceHelper` — `asJson(uri, data)` 같은 반복 헬퍼 노출
-- [ ] 1.0.0 안정화 (semver guarantee)
+- [x] 6 consumer repo 마이그레이션 (각 repo의 `tools/utils.ts` 제거 + toolkit factory 호출로 교체) — v0.2.0 wave에서 완료
+- [x] 1.0.0 안정화 (semver guarantee) — v1.0.0
+- [ ] `aggregationHelper` 또는 `Promise.allSettled` wrapper — aggregation 도구의 error reporting 패턴화 (1.x post-release)
+- [ ] `resourceHelper` — `asJson(uri, data)` 같은 반복 헬퍼 노출 (1.x post-release)
+- [ ] `wrapImageToolHandler` 추출 — android-mcp 로컬 패턴이 toolkit으로 올라갈지 평가 (잠재 BC, 2.0 후보)
 
 ## 단일 진실 소스 (Single Source of Truth)
 
