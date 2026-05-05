@@ -188,13 +188,138 @@ src/
 ├── config.ts             # env vars incl. enabledCategories / disabledCategories parsing
 ├── client.ts             # HTTP client wrapper for the upstream API
 ├── tool-registry.ts      # CATEGORIES const + ToolRegistry class + searchTools meta-tool
-├── resources.ts          # MCP Resources via registerResource (hot entity URIs)
+├── resources.ts          # MCP Resources via registerResource (hot entity URIs + Apps SDK ui:// templates)
+├── ui/                   # Apps SDK card HTML templates (when shipped) — copied to dist/ui/ at build
 └── tools/
     ├── utils.ts          # wrapToolHandler built via createWrapToolHandler factory + domain extractors, assertWriteAllowed, custom error classes
     ├── extract-fields.ts # applyExtractFields helper + extractFieldsDescription
     ├── aggregations.ts   # round-trip-elimination tools (get-X-summary)
     └── <category>.ts     # one file per logical category, exporting Schema + handler pairs
 ```
+
+If you ship Apps SDK cards (see [Apps SDK Cards](#apps-sdk-cards) below), add this to the build script so HTML templates land alongside compiled JS:
+
+```json
+"build": "tsc && node -e \"require('fs').cpSync('src/ui','dist/ui',{recursive:true})\""
+```
+
+## Runtime & transport
+
+Use `startMcpServer` from `@us-all/mcp-toolkit/runtime` (v1.2.0+) instead of hand-rolling stdio bootstrap. One line replaces 12, and the same code transparently supports Streamable HTTP for ChatGPT Apps SDK / remote clients.
+
+```ts
+import { startMcpServer } from "@us-all/mcp-toolkit/runtime";
+
+startMcpServer(server).catch((error) => {
+  console.error("Fatal error:", error);
+  process.exit(1);
+});
+```
+
+Transport is selected by env (default stdio — no breaking change for existing users):
+
+| Env var | Default | Description |
+|---|---|---|
+| `MCP_TRANSPORT` | `stdio` | `http` to enable Streamable HTTP |
+| `MCP_HTTP_TOKEN` | — | Bearer token. Required when `MCP_TRANSPORT=http` (unless `MCP_HTTP_SKIP_AUTH=true`) |
+| `MCP_HTTP_PORT` | `3000` | HTTP listen port |
+| `MCP_HTTP_HOST` | `127.0.0.1` | Bind host. Localhost binds auto-enable DNS rebinding protection. |
+| `MCP_HTTP_SKIP_AUTH` | `false` | Skip Bearer auth — only when an upstream proxy already authenticates |
+
+HTTP mode exposes `POST/GET/DELETE /mcp` (Bearer-auth JSON-RPC) and `GET /health` (public liveness check).
+
+If your `index.ts` does pre-startup work (e.g. capability detection in `google-drive-mcp`), keep `main()` and replace only the transport call:
+
+```ts
+async function main() {
+  validateConfig();
+  await detectCapabilities();   // pre-flight
+  await startMcpServer(server); // transport
+}
+main().catch(...);
+```
+
+**Known limitation (2026-05)**: stateless HTTP mode (the toolkit default) handles initialize within a single request fine, but separate follow-up HTTP requests don't share session state — fine for short-lived ChatGPT calls, may need stateful mode for long-running custom clients. Tracked for a future minor.
+
+## Apps SDK cards
+
+When a tool has structured output that benefits from visual rendering (an SLO snapshot, a comparison table, a permission audit), ship it as a ChatGPT Apps SDK card. Claude clients ignore the metadata and use the existing JSON text — non-breaking.
+
+**1. Author the HTML template** at `src/ui/<card>.html`. The template runs in a sandboxed iframe with access to `window.openai.toolOutput` (your tool's `structuredContent`):
+
+```html
+<script>
+  function update() {
+    document.getElementById('app').innerHTML = render(window.openai && window.openai.toolOutput);
+  }
+  update();
+  window.addEventListener('openai:set_globals', update); // re-render on tool re-call
+</script>
+```
+
+Keep templates self-contained (inline CSS, vanilla JS, dark/light via `prefers-color-scheme`). No external CDNs, no module imports. Sandbox limits apply.
+
+**2. Register the template as an MCP resource** with mime type `text/html+skybridge` (OpenAI's accepted value as of 2026-05) plus both `_meta` aliases for cross-vendor portability:
+
+```ts
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const UI_DIR = join(dirname(fileURLToPath(import.meta.url)), "ui");
+const CARD_HTML = readFileSync(join(UI_DIR, "my-card.html"), "utf-8");
+
+server.registerResource(
+  "my-card",
+  "ui://widget/my-card.html",
+  {
+    title: "My card",
+    mimeType: "text/html+skybridge",
+    _meta: {
+      "openai/outputTemplate": "ui://widget/my-card.html",
+      "ui.resourceUri": "ui://widget/my-card.html",
+    },
+  },
+  async (uri) => ({
+    contents: [{
+      uri: uri.toString(),
+      mimeType: "text/html+skybridge",
+      text: CARD_HTML,
+    }],
+  }),
+);
+```
+
+**3. Wrap the target tool** so its result includes `structuredContent` + `_meta["openai/outputTemplate"]`. Reuse `wrapToolHandler` for redaction/error handling and post-process the success path:
+
+```ts
+const CARD_URI = "ui://widget/my-card.html";
+const wrappedHandler = wrapToolHandler(myToolFn);
+
+async function myToolWithCard(args: Parameters<typeof wrappedHandler>[0]) {
+  const result = await wrappedHandler(args);
+  if (result.isError) return result;
+  try {
+    const structured = JSON.parse(result.content[0].text);
+    return {
+      ...result,
+      structuredContent: structured,
+      _meta: {
+        "openai/outputTemplate": CARD_URI,
+        "ui.resourceUri": CARD_URI,
+      },
+    };
+  } catch { return result; }
+}
+
+tool("my-tool", "...", mySchema.shape, myToolWithCard);
+```
+
+**Conventions**:
+- One render-only tool per card. Don't decorate every tool with `outputTemplate` — only the one you want surfaced visually.
+- URI scheme `ui://widget/<card>.html` (OpenAI's documented namespace; works alongside server-specific schemes like `dd://`, `mlflow://`).
+- Card name in the tool description (e.g. "Renders an Apps SDK card on ChatGPT clients") so the model knows it's available.
+- Verify with Playwright + mock data before shipping; visual rendering only happens in ChatGPT.
 
 ## Other conventions
 

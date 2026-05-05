@@ -1,6 +1,6 @@
 {
   "name": "@us-all/mcp-toolkit",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Shared MCP server building blocks for @us-all servers — token-efficient by design (category toggles, extractFields, search-tools meta, registry, runtime)",
   "type": "module",
   "main": "dist/index.js",

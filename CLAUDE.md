@@ -58,6 +58,7 @@ pnpm test           # 36 unit tests
 
 ## 최근 변경사항
 
+- **v1.2.1** (2026-05-05): STANDARD.md 업데이트 — `startMcpServer` 런타임 + Apps SDK 카드 패턴 두 섹션 추가. 6 consumer 모두 카드 채택(`slo-compliance-snapshot`/`compare-runs`/`summarize-site`/`device-health`/`lineage-impact`/`audit-shared-drive-permissions`) 후 패턴 안정화. 코드 변경 0줄 (docs-only patch).
 - **v1.2.0** (2026-05-05): `startMcpServer(server, opts?)` 런타임 헬퍼 추가 (`./runtime` sub-export). `MCP_TRANSPORT=http`로 Streamable HTTP transport 옵트인 (기본 stdio, breaking change 없음). HTTP 모드: 순수 `node:http` + Bearer auth (`MCP_HTTP_TOKEN`), `/mcp` JSON-RPC + `/health` 공개 엔드포인트, localhost 바인딩 시 DNS rebinding protection 자동 활성. 의존성 0 추가 — 초기엔 Hono 검토했으나 `@hono/node-server`가 transport 응답 종료 후 재진입(`ERR_HTTP_HEADERS_SENT`), `node:http`로 정착. 6 consumer의 `index.ts` 끝 12-line stdio 부트스트랩을 1줄 호출로 교체 가능. Pure-functions 원칙 일부 완화 — 모든 consumer가 동일한 transport 부트스트랩을 반복하던 비용이 컸음. 7 신규 테스트 (총 54/54).
 - **v1.1.0** (2026-05-03): `aggregate(fetchers, caveats, formatReason?)` helper 추가 (`./aggregate` sub-export). 6 consumer의 어그리게이션 도구가 반복하던 `Promise.allSettled` + 라벨링된 `caveats.push(...)` 보일러플레이트(블록당 10-15 lines)를 1줄 호출로 단축. 타입은 입력 fetcher object 모양에서 추론, rejected slot은 `null`. `defaultFormatReason` 헬퍼도 별도 노출. 11 신규 테스트 (총 47/47).
 - **v1.0.0** (2026-05-03): API freeze. v0.2.0 이후 6 consumer 모두 `^0.2.0` 핀에 안정 안착, 후속 변경 0건, 36/36 테스트 통과 → semver 1.x 보장 시작. Public surface 12 symbol (4 entry points) 그대로. Breaking change 없음, 단순 안정화 마일스톤.
