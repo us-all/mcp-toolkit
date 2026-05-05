@@ -22,3 +22,9 @@ export {
   type Fetchers,
   type Aggregated,
 } from "./aggregate.js";
+export {
+  startMcpServer,
+  type StartMcpServerOptions,
+  type TransportKind,
+  type HttpHandle,
+} from "./runtime.js";
