@@ -154,14 +154,16 @@ Auth: GitHub App `us-all-bot` (per-matrix-job installation token, no PAT, no exp
 
 ## Consumer suite (proof of concept)
 
-| Server | Tools | npm/mo | Adopted | Status |
-|---|--:|--:|---|---|
-| [@us-all/datadog-mcp](https://github.com/us-all/datadog-mcp-server) | 159 | 3,887 | v1.12.0+ | full |
-| [@us-all/openmetadata-mcp](https://github.com/us-all/openmetadata-mcp-server) | 156 | 2,322 | v1.7.0+ | full |
-| [@us-all/google-drive-mcp](https://github.com/us-all/google-drive-mcp-server) | 96 | 2,386 | v1.8.0+ | full |
-| [@us-all/android-mcp](https://github.com/us-all/android-mcp-server) | 75 | 1,679 | v1.7.0+ | full |
-| [@us-all/mlflow-mcp](https://github.com/us-all/mlflow-mcp-server) | 66 | 2,036 | v1.6.0+ | full |
-| [@us-all/unifi-mcp](https://github.com/us-all/unifi-mcp-server) | 45 | 1,769 | v1.5.0+ | full |
+Six production servers built on this toolkit. All MIT, distributed via npm under `@us-all/*`, [searchable on the MCP Server Registry](https://registry.modelcontextprotocol.io/) under `io.github.us-all/*`, and listed on [Glama](https://glama.ai/mcp).
+
+| Server | Tools | npm/mo | Registry namespace |
+|---|--:|--:|---|
+| [@us-all/datadog-mcp](https://github.com/us-all/datadog-mcp-server) | 165 | 5,010 | `io.github.us-all/datadog` |
+| [@us-all/openmetadata-mcp](https://github.com/us-all/openmetadata-mcp-server) | 170 | 3,122 | `io.github.us-all/openmetadata` |
+| [@us-all/google-drive-mcp](https://github.com/us-all/google-drive-mcp-server) | 98 | 3,243 | `io.github.us-all/google-drive` |
+| [@us-all/mlflow-mcp](https://github.com/us-all/mlflow-mcp-server) | 82 | 2,717 | `io.github.us-all/mlflow` |
+| [@us-all/android-mcp](https://github.com/us-all/android-mcp-server) | 76 | 2,405 | `io.github.us-all/android` |
+| [@us-all/unifi-mcp](https://github.com/us-all/unifi-mcp-server) | 54 | 2,566 | `io.github.us-all/unifi` |
 
 ~990 LOC of duplicated boilerplate eliminated across the suite at v0.1.0–v1.0.0 migrations.
 
