@@ -70,22 +70,24 @@ jobs:
           repositories: ${{ matrix.consumer }}
 
       - name: Checkout consumer
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: us-all/${{ matrix.consumer }}
           token: ${{ steps.app-token.outputs.token }}
           path: consumer
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
         with:
           package_json_file: consumer/package.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           # No `cache: pnpm` — when bump skips (already pinned), pnpm install
           # is also skipped, so post-step cache save would fail with a Path
-          # Validation Error. Cascade runs are infrequent enough that the
-          # cache miss is fine.
+          # Validation Error. setup-node@v5 also auto-enables caching when
+          # packageManager field is present, so opt out explicitly. Cascade
+          # runs are infrequent enough that the cache miss is fine.
+          package-manager-cache: false
 
       - name: Bump dep + PATCH version
         id: bump
