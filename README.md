@@ -1,12 +1,12 @@
 # @us-all/mcp-toolkit
 
-> **The 4 patterns that survive in production across 7 MCP servers.**
+> **The 4 patterns that survive in production across 6 MCP servers.**
 >
-> Token-efficient defaults, pluggable error redaction, declarative aggregation, and tool-discovery meta — extracted from 6 consumer servers (datadog 159 tools, openmetadata 156, google-drive 96, mlflow 66, android 75, unifi 45). Single evolution point. Cascade-automated to all consumers.
+> Token-efficient defaults, pluggable error redaction, declarative aggregation, and tool-discovery meta — extracted from 6 consumer servers. Single evolution point. Cascade-automated to all consumers.
 
 [![npm](https://img.shields.io/npm/v/@us-all/mcp-toolkit)](https://www.npmjs.com/package/@us-all/mcp-toolkit)
 [![downloads](https://img.shields.io/npm/dm/@us-all/mcp-toolkit)](https://www.npmjs.com/package/@us-all/mcp-toolkit)
-[![tests](https://img.shields.io/badge/tests-47-green)](./tests)
+[![tests](https://img.shields.io/badge/tests-54-green)](./tests)
 [![@us-all standard](https://img.shields.io/badge/standard-STANDARD.md-blue)](./STANDARD.md)
 
 ## When to use this
@@ -42,7 +42,7 @@ applyExtractFields(dashboard, "id,title,widgets.*.definition.type");
 // → { id: "abc", title: "...", widgets: [{ definition: { type: "timeseries" } }] }
 ```
 
-When wired through `createWrapToolHandler`, every tool gets an optional `extractFields` parameter automatically — caller-supplied projection takes precedence over the tool's default.
+When wired through `createWrapToolHandler`, tools whose schemas declare `extractFields` get caller-supplied projection automatically. MCP SDK validation drops undeclared fields, so each consumer must opt in per tool schema or use an explicit passthrough schema.
 
 ### 2. `ToolRegistry<TCategory>` + `search-tools`
 
@@ -71,7 +71,7 @@ currentCategory = "meta";
 tool("search-tools", "Discover tools by query", meta.schema.shape, wrapToolHandler(meta.handler));
 ```
 
-Real-world impact (datadog, 159 tools): default load = 25K schema tokens; `DD_TOOLS=metrics,monitors` = 3.8K (−85%).
+Real-world impact (datadog, 165 tools): default load = 25K schema tokens; `DD_TOOLS=metrics,monitors` = 3.8K (−85%).
 
 ### 3. `createWrapToolHandler` — error redaction + structured errors
 
@@ -131,7 +131,7 @@ pnpm add @us-all/mcp-toolkit
 pnpm add @modelcontextprotocol/sdk zod
 ```
 
-Node 18+, ESM, TypeScript strict. Peer SDK: `^1.27 || ^1.28 || ^1.29`.
+Node 22+, ESM, TypeScript strict. Peer SDK: `^1.27 || ^1.28 || ^1.29`.
 
 Sub-exports for tree-shaking:
 - `@us-all/mcp-toolkit` — main barrel
@@ -176,7 +176,7 @@ Six production servers built on this toolkit. All MIT, distributed via npm under
 ```bash
 pnpm install
 pnpm build
-pnpm test     # 47 unit tests
+pnpm test     # 54 unit tests
 ```
 
 Coverage: extract-fields edges (wildcards, backtick keys, array projection), registry semantics (allowlist/denylist, search matching), wrap-tool-handler (success/error paths, custom redaction, errorExtractors), aggregate (success/reject mix, custom formatReason, concurrency).
