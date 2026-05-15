@@ -58,6 +58,7 @@ pnpm test           # 36 unit tests
 
 ## 최근 변경사항
 
+- **v1.2.3** (2026-05-15): transitive 보안 패치 — `pnpm.overrides`로 `hono` ^4.12.18(CVE-2026-44455~44459 ×5), `fast-uri` ^3.1.2(CVE-2026-6321/6322 ×2 high), `ip-address` ^10.1.1(CVE-2026-42338) 핀. `@modelcontextprotocol/sdk → hono/ajv→fast-uri/express-rate-limit→ip-address` 체인의 transitive. 코드 변경 0줄, 54/54 vitest 통과. 9 consumer/peer repo 각각 동일 overrides 패치 동반 cascade.
 - **v1.2.2** (2026-05-15): docs/CI 정리 패치 — GitHub Actions v5(Node 24) 카스케이드, CI 매트릭스/`engines.node` Node 22 핀, README runtime 섹션 정렬, Consumer suite 표(도구 카운트/npm/mo/registry/Glama 컬럼) 최신화. 런타임 API 변경 0줄. 카스케이드 시 6 consumer는 dep 핀 갱신만(코드 영향 없음).
 - **v1.2.1** (2026-05-05): STANDARD.md 업데이트 — `startMcpServer` 런타임 + Apps SDK 카드 패턴 두 섹션 추가. 6 consumer 모두 카드 채택(`slo-compliance-snapshot`/`compare-runs`/`summarize-site`/`device-health`/`lineage-impact`/`audit-shared-drive-permissions`) 후 패턴 안정화. 코드 변경 0줄 (docs-only patch).
 - **v1.2.0** (2026-05-05): `startMcpServer(server, opts?)` 런타임 헬퍼 추가 (`./runtime` sub-export). `MCP_TRANSPORT=http`로 Streamable HTTP transport 옵트인 (기본 stdio, breaking change 없음). HTTP 모드: 순수 `node:http` + Bearer auth (`MCP_HTTP_TOKEN`), `/mcp` JSON-RPC + `/health` 공개 엔드포인트, localhost 바인딩 시 DNS rebinding protection 자동 활성. 의존성 0 추가 — 초기엔 Hono 검토했으나 `@hono/node-server`가 transport 응답 종료 후 재진입(`ERR_HTTP_HEADERS_SENT`), `node:http`로 정착. 6 consumer의 `index.ts` 끝 12-line stdio 부트스트랩을 1줄 호출로 교체 가능. Pure-functions 원칙 일부 완화 — 모든 consumer가 동일한 transport 부트스트랩을 반복하던 비용이 컸음. 7 신규 테스트 (총 54/54).
