@@ -13,9 +13,8 @@
  */
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { NodeStreamableHTTPServerTransport } from "@modelcontextprotocol/node";
+import { StdioServerTransport, type McpServer } from "@modelcontextprotocol/server";
 
 const LOCALHOST_HOSTS = new Set(["127.0.0.1", "localhost", "::1"]);
 
@@ -76,7 +75,7 @@ function writeJson(res: ServerResponse, status: number, body: unknown): void {
  *   HTTP transport plus a public `/health` endpoint, and returns a handle for inspecting
  *   the bound port and shutting down. Bearer auth via `MCP_HTTP_TOKEN`.
  *
- * Concurrent requests share a single stateless `StreamableHTTPServerTransport` instance,
+ * Concurrent requests share a single stateless `NodeStreamableHTTPServerTransport` instance,
  * which is the documented pattern for `sessionIdGenerator: undefined` mode.
  */
 export async function startMcpServer(
@@ -104,7 +103,7 @@ export async function startMcpServer(
   }
 
   const isLocalhost = LOCALHOST_HOSTS.has(host);
-  let transport: StreamableHTTPServerTransport | undefined;
+  let transport: NodeStreamableHTTPServerTransport | undefined;
 
   const httpServer: Server = createServer(async (req, res) => {
     try {
@@ -161,7 +160,7 @@ export async function startMcpServer(
                 `127.0.0.1:${boundPort}`,
               ]
             : undefined);
-        transport = new StreamableHTTPServerTransport({
+        transport = new NodeStreamableHTTPServerTransport({
           sessionIdGenerator: undefined,
           enableDnsRebindingProtection: allowedHosts !== undefined,
           allowedHosts,

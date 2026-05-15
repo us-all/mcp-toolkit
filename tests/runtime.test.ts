@@ -1,14 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { startMcpServer, type HttpHandle } from "../src/runtime.js";
 
 function makeServer(): McpServer {
   const server = new McpServer({ name: "runtime-test", version: "0.0.0" });
-  server.tool(
+  server.registerTool(
     "echo",
-    "echo back the message",
-    { message: z.string() },
+    {
+      description: "echo back the message",
+      inputSchema: z.object({ message: z.string() }),
+    },
     async ({ message }) => ({ content: [{ type: "text", text: message }] }),
   );
   return server;
