@@ -72,7 +72,8 @@ pnpm test           # 36 unit tests
 
 ## 알려진 이슈
 
-- **`@modelcontextprotocol/sdk` 2.0-alpha 호환성 미검증**: alpha 단계라 stable 대기 중. 1.x 라인은 ^1.27 || ^1.28 || ^1.29 명시.
+- **`@modelcontextprotocol/sdk` 2.0-alpha PoC 검증됨, stable 대기 중**: 2026-05-15 PoC 결과 — alpha.2에서 toolkit 54/54 + datadog 23/23 통과. 변경 footprint: toolkit ~10줄(`runtime.ts` import + transport rename), consumer ~25줄/repo(import + 헬퍼 1개 + prompts.ts argsSchema 래핑). PoC 브랜치 `migrate/sdk-2-alpha` @ `7feb5e1` (toolkit) / `fe4d6be` (datadog, file:link). 마이그레이션 패턴은 STANDARD.md "v2 Migration Notes" 참조. stable v2 출시 시 rebase + 8 consumer cascade. 1.x 라인은 ^1.27 || ^1.28 || ^1.29 명시 유지.
+- **upstream 미해결 alpha 버그**: [typescript-sdk#2093](https://github.com/modelcontextprotocol/typescript-sdk/issues/2093) — `@cfworker/json-schema`가 optional peer 선언이지만 unconditional import. 우리가 리포트(2026-05-15). stable에서 fix되면 consumer dep 1개 줄어듦.
 - **테스트는 toolkit 자체만**: 6 consumer repo의 통합 테스트는 각 repo가 책임. toolkit 변경 시 consumer breakage 가능 → semver minor에서 깨지지 않도록 주의.
 
 ## 개선 로드맵

@@ -341,3 +341,55 @@ tool("my-tool", "...", mySchema.shape, myToolWithCard);
 
 - Run `node scripts/measure-tokens.mjs` (when added by E-6) on every PR; flag if `default` schema tokens grow more than 20%.
 - Keep this doc updated as new patterns prove out across multiple repos.
+
+## v2 Migration Notes (`@modelcontextprotocol/sdk` 1.x → 2.x)
+
+Status (2026-05-15): SDK 2.x is **alpha.2**. v1.x remains the recommended pin. PoC verified the migration path on `mcp-toolkit#migrate/sdk-2-alpha` (`7feb5e1`, 54/54 tests) and `datadog-mcp-server#migrate/sdk-2-alpha` (`fe4d6be`, 23/23 tests). Apply when stable v2 ships.
+
+### Package layout change
+
+| v1 | v2 |
+|----|----|
+| `@modelcontextprotocol/sdk` | `@modelcontextprotocol/server` (McpServer, ResourceTemplate, StdioServerTransport, types) |
+| (same) | `@modelcontextprotocol/node` (`NodeStreamableHTTPServerTransport`) |
+| (n/a) | `@cfworker/json-schema` — declared optional peer but **must be installed** until [#2093](https://github.com/modelcontextprotocol/typescript-sdk/issues/2093) is fixed |
+
+### Consumer migration (≈25 lines per repo)
+
+**Key insight**: change the local `tool()` helper once and the hundreds of registration call sites stay unchanged. Wrap `ZodRawShape` inside the helper.
+
+```ts
+// before (v1)
+function tool(name, description, schema: any, handler: any) {
+  if (registry.isEnabled(currentCategory)) {
+    server.tool(name, description, schema, handler);
+  }
+}
+
+// after (v2)
+import { z, type ZodRawShape } from "zod";
+function tool(name, description, shape: ZodRawShape, handler: any) {
+  if (registry.isEnabled(currentCategory)) {
+    server.registerTool(
+      name,
+      { description, inputSchema: z.object(shape) },
+      handler,
+    );
+  }
+}
+```
+
+### Other touch points
+
+- **All `McpServer` / `ResourceTemplate` imports**: `@modelcontextprotocol/sdk/server/mcp.js` → `@modelcontextprotocol/server`
+- **`StdioServerTransport`**: also exports from `@modelcontextprotocol/server` (no `/server/stdio` subpath despite what the upstream migration guide says — it's wrong)
+- **`StreamableHTTPServerTransport` → `NodeStreamableHTTPServerTransport`** from `@modelcontextprotocol/node`
+- **`registerPrompt` `argsSchema`**: must be a Standard Schema object (`z.object({...})`), not a raw shape
+- **Test mocks**: `vi.mock("@modelcontextprotocol/sdk/server/mcp.js", …)` → `vi.mock("@modelcontextprotocol/server", …)`. The mock's `.tool()` method becomes `.registerTool(name, config, handler)` where `description` lives on `config.description`.
+
+### Known v2-alpha gotchas
+
+1. **`@cfworker/json-schema` hard-import** — see [upstream #2093](https://github.com/modelcontextprotocol/typescript-sdk/issues/2093). Add it as a direct dep until fixed.
+2. **`/server/stdio` subpath does not exist** — migration guide is incorrect. Import `StdioServerTransport` from `@modelcontextprotocol/server` main.
+3. **Node 18 dropped** — minimum is Node 20 (we're on Node 22, no impact).
+4. **CommonJS dropped** — ESM only (we're already ESM, no impact).
