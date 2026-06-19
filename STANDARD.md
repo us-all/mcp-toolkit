@@ -321,6 +321,25 @@ tool("my-tool", "...", mySchema.shape, myToolWithCard);
 - Card name in the tool description (e.g. "Renders an Apps SDK card on ChatGPT clients") so the model knows it's available.
 - Verify with Playwright + mock data before shipping; visual rendering only happens in ChatGPT.
 
+## Tool annotations (`inferToolAnnotations`)
+
+Advertise the standard MCP behavioural hints (`readOnlyHint` / `destructiveHint` / `openWorldHint`) from one place instead of hand-annotating each tool. Apply it inside the central `tool()` helper so every tool gets hints for free:
+
+```ts
+import { inferToolAnnotations } from "@us-all/mcp-toolkit";
+
+function tool(name: string, description: string, schema: any, handler: any, annotations?: ToolAnnotations): void {
+  registry.register(name, description, currentCategory);
+  if (registry.isEnabled(currentCategory)) {
+    server.tool(name, description, schema, inferToolAnnotations(name, annotations), handler);
+  }
+}
+```
+
+- **Inference is name-based and conservative**: default is `readOnlyHint: true`; only a curated set of mutating verbs flips it to false (`create`/`update`/`delete`/`set`/`trigger`/`tap`/…). A destructive subset (`delete`/`remove`/`clear`/`cancel`/…) adds `destructiveHint: true`. `openWorldHint: true` for all (these servers hit external systems). It peels namespace prefixes (`dbt-`/`airflow-`/`dq-`/`docs-`/`sheets-`/`slides-`) and a `batch-` wrapper to find the real verb.
+- **Hints are advisory** — the MCP spec says clients MUST NOT make security-critical decisions on them alone; the real write gate stays `<PREFIX>_ALLOW_WRITE`. So under-claiming read-only is the safe failure mode, and the inference defaults that way.
+- **Override the few it gets wrong**: pass a `ToolAnnotations` override at the call site (e.g. `sheets-find-replace` / `sheets-auto-resize` whose first token isn't a write verb). Audit each repo's tool list once when wiring; most repos (e.g. datadog's 166 tools) need zero overrides.
+
 ## Other conventions
 
 - **Read-only by default**: gate all create/update/delete behind `<PREFIX>_ALLOW_WRITE=true`.

@@ -58,6 +58,7 @@ pnpm test           # 36 unit tests
 
 ## 최근 변경사항
 
+- **v1.3.0** (2026-06-19): `inferToolAnnotations(name, overrides?)` + `toolVerb(name)` 추가 (`./annotations` sub-export). 도구명 verb 기반으로 MCP `ToolAnnotations`(`readOnlyHint`/`destructiveHint`/`openWorldHint`)를 추론 — 각 consumer가 `tool()` 헬퍼 한 곳에서 적용하면 전 도구 자동 annotated. **보수적 설계**: 기본 read-only, 큐레이션된 write verb set만 flip(생성/수정/삭제/트리거/탭 등), destructive subset(delete/remove/clear/cancel 등)이 `destructiveHint`, openWorld는 전부 true. 네임스페이스 prefix(dbt-/airflow-/dq-/docs-/sheets-/slides-) + `batch-` wrapper peel. 오분류는 call-site override로 보정(gd find-replace/auto-resize 등). **실제 9-repo 425개 도구명 코퍼스 검증: write→readOnly 오분류 0건**(안전 방향). datadog 166 도구는 override 0개. SDK InMemoryTransport 통합 테스트로 annotations가 tools/list에 노출됨 end-to-end 증명. 36→142 test. 비파괴 순수 추가(minor). consumer wiring(`tool()` 1줄 + repo별 override audit)은 별도 cascade.
 - **v1.2.3** (2026-05-15): transitive 보안 패치 — `pnpm.overrides`로 `hono` ^4.12.18(CVE-2026-44455~44459 ×5), `fast-uri` ^3.1.2(CVE-2026-6321/6322 ×2 high), `ip-address` ^10.1.1(CVE-2026-42338) 핀. `@modelcontextprotocol/sdk → hono/ajv→fast-uri/express-rate-limit→ip-address` 체인의 transitive. 코드 변경 0줄, 54/54 vitest 통과. 9 consumer/peer repo 각각 동일 overrides 패치 동반 cascade.
 - **v1.2.2** (2026-05-15): docs/CI 정리 패치 — GitHub Actions v5(Node 24) 카스케이드, CI 매트릭스/`engines.node` Node 22 핀, README runtime 섹션 정렬, Consumer suite 표(도구 카운트/npm/mo/registry/Glama 컬럼) 최신화. 런타임 API 변경 0줄. 카스케이드 시 6 consumer는 dep 핀 갱신만(코드 영향 없음).
 - **v1.2.1** (2026-05-05): STANDARD.md 업데이트 — `startMcpServer` 런타임 + Apps SDK 카드 패턴 두 섹션 추가. 6 consumer 모두 카드 채택(`slo-compliance-snapshot`/`compare-runs`/`summarize-site`/`device-health`/`lineage-impact`/`audit-shared-drive-permissions`) 후 패턴 안정화. 코드 변경 0줄 (docs-only patch).
@@ -85,6 +86,7 @@ pnpm test           # 36 unit tests
 - [x] 1.0.0 안정화 (semver guarantee) — v1.0.0
 - [x] `aggregate(fetchers, caveats)` helper — aggregation 도구의 error reporting 패턴화 (v1.1.0)
 - [x] `startMcpServer` runtime helper — stdio + Streamable HTTP cascade (v1.2.0)
+- [x] `inferToolAnnotations` — name-based MCP tool annotations (readOnly/destructive/openWorld), one-place wiring (v1.3.0)
 - [ ] `resourceHelper` — `asJson(uri, data)` 같은 반복 헬퍼 노출 (1.x post-release)
 - [ ] `wrapImageToolHandler` 추출 — android-mcp 로컬 패턴이 toolkit으로 올라갈지 평가 (잠재 BC, 2.0 후보)
 
