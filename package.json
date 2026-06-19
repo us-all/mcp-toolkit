@@ -1,6 +1,6 @@
 {
   "name": "@us-all/mcp-toolkit",
-  "version": "1.2.5",
+  "version": "1.3.0",
   "description": "Shared MCP server building blocks for @us-all servers — token-efficient by design (category toggles, extractFields, search-tools meta, registry, runtime)",
   "type": "module",
   "main": "dist/index.js",
@@ -29,6 +29,10 @@
     "./runtime": {
       "import": "./dist/runtime.js",
       "types": "./dist/runtime.d.ts"
+    },
+    "./annotations": {
+      "import": "./dist/annotations.js",
+      "types": "./dist/annotations.d.ts"
     }
   },
   "files": [

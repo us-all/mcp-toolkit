@@ -28,3 +28,8 @@ export {
   type TransportKind,
   type HttpHandle,
 } from "./runtime.js";
+export {
+  inferToolAnnotations,
+  toolVerb,
+  type ToolAnnotations,
+} from "./annotations.js";
